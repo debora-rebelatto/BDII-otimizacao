@@ -51,9 +51,13 @@ sudo -u postgres psql
 
 Para analisar o desempenho das consultas, foi utilizado o comando `EXPLAIN` do Postgres. O comando `EXPLAIN` retorna o plano de execução da consulta, que é composto por uma árvore de operações. Cada nó da árvore representa uma operação que será realizada para executar a consulta. O comando `EXPLAIN` também retorna o custo estimado de cada operação e o custo total da consulta.
 
+O Query plan para cada consulta pode ser encontrado em sua respectiva pasta (ex: query1/query1-sem-index.md).
+
+Foi incluído no documento o plano de execução de cada consulta utilizando o [explain.dalibo.com](https://explain.dalibo.com/), que é uma ferramenta online que permite visualizar o plano de execução de uma consulta.
+
 Todos os cálculos foram realizados utilizando o comando `EXPLAIN ANALYZE`, que além de retornar o plano de execução, também executa a consulta e retorna o tempo de execução.
 
-A resolução de alguns cálculos podem não ter sido incluídos no documento, mas podem ser encontrados [nesta planilha](https://docs.google.com/spreadsheets/d/1-Kdt59DL8dX9xvrQSFzTBdK3uidualAdOoZVBnuLlVA/)
+O tempo de execução de cada consulta foi calculado executando a consulta 5 vezes e calculando a média e o desvio padrão. A resolução de alguns cálculos podem não ter sido incluídos no documento, mas podem ser encontrados [nesta planilha](https://docs.google.com/spreadsheets/d/1-Kdt59DL8dX9xvrQSFzTBdK3uidualAdOoZVBnuLlVA/)
 
 ## Consulta 1:
 
@@ -92,11 +96,11 @@ O Parallel Hash Join node é executado em paralelo por três trabalhadores. O to
 92.163
 92.105
 
-**Cálculo da Média**
-(105.604 + 154.472 + 93.279 + 92.163 + 92.105) / 5 = 107.525
+**Cálculo da Média**  
+$$ \frac{(105.604 + 154.472 + 93.279 + 92.163 + 92.105)}{5}= 107.525ms$$
 
-**Cálculo do Desvio Padrão**
-24.01843879
+**Cálculo do Desvio Padrão**  
+$$24.01843879ms$$
 
 ### Com índice:
 
@@ -126,10 +130,10 @@ O Parallel Hash Join node foi substituído por um Parallel Index Scan node. O Pa
 0,211
 
 **Cálculo da Média**
-(0.209 + 0.387 + 0.294 + 0.298 + 0.211) / 5 = 0.280
+$$\frac{0.209 + 0.387 + 0.294 + 0.298 + 0.211}{5} = 0.280ms$$
 
 **Cálculo do Desvio Padrão**
-0.06598
+$$0.06598ms$$
 
 Ambos os planos de execução são executando a mesma consulta, que retorna o nome dos filmes em que Keanu Reeves atuou. No entanto, o primeiro plano de execução é significativamente mais lento que o segundo plano de execução.
 
@@ -140,6 +144,21 @@ A segunda consulta não usa execução paralela. Em vez disso, ela usa scans de 
 A diferença entre os dois planos é que o primeiro usa paralelismo, o que pode acelerar a execução de consultas para certos tipos de consultas, mas também pode atrasar a execução de consultas para outros. Neste caso, a execução paralela não está ajudando e está tornando a consulta mais lenta, provavelmente devido ao alto custo dos scans sequenciais na tabela casts. A segunda consulta, por outro lado, evita os scans sequenciais caros e usa scans de índice em vez disso, resultando em um tempo de execução da consulta muito mais rápido.
 
 ## Consulta 2
+Essa query retorna os filmes lançados entre 2012 e 2022 na categoria de ação, juntamente com o nome do filme, a data de lançamento, o nome do membro do elenco que interpretou o papel de um ator e o trabalho que eles desempenharam (Ator). A query pode ser otimizada usando índices nas seguintes colunas: movies.id, movie_categories.movie_id, categories.id, casts.movie_id, people.id, casts.person_id, job_names.job_id, e movies.date.
+
+```sql
+EXPLAIN ANALYZE SELECT movies.id, movies.name, movies.date, categories.name as category, people.name as cast_member, job_names.name as job
+FROM movies
+JOIN movie_categories ON movies.id = movie_categories.movie_id
+JOIN categories ON movie_categories.category_id = categories.id
+JOIN casts ON movies.id = casts.movie_id
+JOIN people ON casts.person_id = people.id
+JOIN job_names ON casts.job_id = job_names.job_id
+WHERE categories.name = 'Action'
+AND job_names.name = 'Actor'
+AND movies.date BETWEEN '2010-01-01' AND '2022-12-31'
+ORDER BY movies.date DESC, movies.name ASC, job_names.name ASC;
+```
 
 ### Sem índice:
 
